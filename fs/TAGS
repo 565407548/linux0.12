@@ -1,0 +1,189 @@
+
+bitmap.c,222
+#define clear_block(18,286
+#define set_bit(31,684
+#define clear_bit(37,851
+#define find_first_zero(51,1305
+int free_block(72,1739
+int new_block(105,2681
+void free_inode(142,3495
+struct m_inode * new_inode(177,4601
+
+block_dev.c,48
+int block_write(25,494
+int block_read(69,1394
+
+buffer.c,852
+struct buffer_head * start_buffer 30,784
+struct buffer_head * hash_table[hash_table31,907
+static struct buffer_head * free_list;32,949
+static struct task_struct * buffer_wait 33,988
+int NR_BUFFERS 34,1036
+static inline void wait_on_buffer(36,1057
+int sys_sync(44,1182
+int sync_dev(59,1434
+void inline invalidate_buffers(90,2121
+void check_disk_change(119,2997
+#define _hashfn(134,3299
+#define hash(135,3360
+static inline void remove_from_queues(140,3478
+static inline void insert_into_queues(161,4153
+static struct buffer_head * find_buffer(178,4630
+struct buffer_head * get_hash_table(195,5159
+#define BADNESS(220,5727
+struct buffer_head * getblk(221,5780
+void brelse(268,6937
+struct buffer_head * bread(282,7241
+#define COPYBLK(301,7559
+void bread_page(314,7935
+struct buffer_head * breada(347,8752
+void buffer_init(373,9334
+
+char_dev.c,278
+static int rw_ttyx(21,400
+static int rw_tty(27,558
+static int rw_ram(34,724
+static int rw_mem(39,803
+static int rw_kmem(44,883
+static int rw_port(49,964
+static int rw_memory(65,1206
+#define NRDEVS 84,1621
+static crw_ptr crw_table[crw_table86,1679
+int rw_char(96,1906
+
+exec.c,236
+#define MAX_ARG_PAGES 43,967
+int sys_uselib(45,993
+static unsigned long * create_tables(89,2066
+static int count(118,2747
+static unsigned long copy_strings(150,3608
+static unsigned long change_ldt(203,4818
+int do_execve(235,5926
+
+fcntl.c,89
+static int dupfd(26,501
+int sys_dup2(44,876
+int sys_dup(50,981
+int sys_fcntl(55,1044
+
+file_dev.c,86
+#define MIN(14,180
+#define MAX(15,217
+int file_read(20,272
+int file_write(57,1050
+
+file_table.c,40
+struct file file_table[file_table9,89
+
+inode.c,503
+struct m_inode inode_table[inode_table17,227
+static inline void wait_on_inode(22,372
+static inline void lock_inode(30,501
+static inline void unlock_inode(39,645
+void invalidate_inodes(46,784
+  void sync_inodes(66,1163
+static int _bmap(86,1653
+  int bmap(162,3543
+int create_block(167,3623
+void iput(176,3730
+struct m_inode * get_empty_inode(227,4959
+struct m_inode * get_pipe_inode(262,5698
+struct m_inode * iget(281,6145
+static void read_inode(336,7241
+static void write_inode(367,8155
+
+ioctl.c,136
+typedef int (*ioctl_ptr)ioctl_ptr16,289
+#define NRDEVS 18,341
+static ioctl_ptr ioctl_table[ioctl_table20,403
+int sys_ioctl(31,630
+
+namei.c,699
+#define ACC_MODE(25,403
+#define MAY_EXEC 33,604
+#define MAY_WRITE 34,623
+#define MAY_READ 35,643
+static int permission(47,929
+static int match(71,1599
+static struct buffer_head * find_entry(110,2786
+static struct buffer_head * add_entry(189,5291
+static struct m_inode * follow_link(250,6777
+static struct m_inode * get_dir(288,7585
+static struct m_inode * dir_namei(348,9199
+struct m_inode * _namei(372,9694
+struct m_inode * lnamei(405,10420
+struct m_inode * namei(418,10758
+int open_namei(428,10935
+int sys_mknod(507,12603
+int sys_mkdir(568,13935
+static int empty_dir(644,15493
+int sys_rmdir(695,16691
+int sys_unlink(777,18386
+int sys_symlink(842,19657
+int sys_link(919,21224
+
+open.c,271
+int sys_ustat(28,434
+int sys_utime(37,583
+int sys_access(63,1202
+int sys_chdir(92,1906
+int sys_chroot(107,2151
+int sys_chmod(122,2397
+int sys_chown(138,2716
+static int check_char_dev(155,2983
+int sys_open(187,3700
+int sys_creat(231,4775
+int sys_close(236,4880
+
+pipe.c,94
+int read_pipe(25,427
+int write_pipe(64,1558
+int sys_pipe(112,2817
+int pipe_ioctl(157,3667
+
+read_write.c,67
+int sys_lseek(33,858
+int sys_read(68,1727
+int sys_write(96,2527
+
+select.c,426
+	struct task_struct * old_task;38,1104
+	struct task_struct ** wait_address;39,1136
+} wait_entry;40,1173
+	int nr;43,1205
+	wait_entry entry[entry44,1214
+} select_table;45,1244
+static void add_wait(51,1300
+static void free_wait(67,1636
+static struct tty_struct * get_tty(89,2187
+static int check_in(113,2709
+static int check_out(133,3101
+static int check_ex(153,3479
+int do_select(173,3815
+int sys_select(239,5479
+
+stat.c,121
+static void cp_stat(20,312
+int sys_stat(41,879
+int sys_lstat(52,1062
+int sys_fstat(63,1249
+int sys_readlink(78,1718
+
+super.c,380
+#define set_bit(26,465
+struct super_block super_block[super_block31,625
+int ROOT_DEV 33,708
+static void lock_super(35,727
+static void free_super(45,870
+static void wait_on_super(53,981
+struct super_block * get_super(61,1160
+void put_super(79,1448
+static struct super_block * read_super(117,2135
+int sys_umount(192,3678
+int sys_mount(232,4691
+void mount_root(277,5509
+
+truncate.c,80
+static int free_ind(18,416
+static int free_dind(48,910
+void truncate(75,1367
