@@ -76,7 +76,7 @@ _keyboard_interrupt:
 	je set_e0
 	cmpb $0xe1,%al
 	je set_e1
-	call key_table(,%eax,4)
+	call key_table(,%eax,4) /*执行 字符 写入 read_queue 操作*/
 	movb $0,e0
 e0_e1:	inb $0x61,%al /*取PPI端口B，其bit7 用于允许/禁止(0/1)键盘*/
 	jmp 1f
@@ -92,7 +92,7 @@ e0_e1:	inb $0x61,%al /*取PPI端口B，其bit7 用于允许/禁止(0/1)键盘*/
 	movb $0x20,%al
 	outb %al,$0x20 /*发送中断结束信号*/
 	pushl $0
-	call _do_tty_interrupt /*将收到的数据转化成规范模式并存放在规范字符缓冲队列中*/
+	call _do_tty_interrupt /*console.c 中定义 将收到的数据转化成规范模式并存放在规范字符缓冲队列中*/
 	addl $4,%esp
 	pop %es
 	pop %ds

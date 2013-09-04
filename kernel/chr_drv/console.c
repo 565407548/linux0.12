@@ -42,6 +42,10 @@
 #include <string.h>
 #include <errno.h>
 
+/*
+  include/termio.h
+  include/linux/tty.h
+*/
 #define DEF_TERMIOS \
 (struct termios) { \
 	ICRNL, \
@@ -55,6 +59,7 @@
 
 /*
  * These are set up by the setup-routine at boot-time:
+ boot/setup.S
  */
 
 #define ORIG_X			(*(unsigned char *)0x90000)
@@ -89,6 +94,9 @@ static unsigned short	video_port_reg;		/* Video register select port	*/
 static unsigned short	video_port_val;		/* Video register value port	*/
 static int can_do_colour = 0;
 
+/*
+虚拟控制台结构
+ */
 static struct {
 	unsigned short	vc_video_erase_char;	
 	unsigned char	vc_attr;
@@ -143,9 +151,13 @@ static void sysbeep(void);
 /*
  * this is what the terminal answers to a ESC-Z or csi0c
  * query (= vt100 response).
+ csi：控制序列引导码 ESC-
  */
 #define RESPONSE "\033[?1;2c"
 
+/*
+ascii码表中不包含控制字符的部分
+ */
 static char * translations[] = {
 /* normal 7-bit ascii */
 	" !\"#$%&'()*+,-./0123456789:;<=>?"
@@ -158,8 +170,8 @@ static char * translations[] = {
 	"\304\304\304\304\307\266\320\322\272\363\362\343\\007\234\007 "
 };
 
-#define NORM_TRANS (translations[0])
-#define GRAF_TRANS (translations[1])
+#define NORM_TRANS (translations[0])/* US 字符集 */
+#define GRAF_TRANS (translations[1])/* VT100字符集 */
 
 /* NOTE! gotoxy thinks x==video_num_columns is ok */
 static inline void gotoxy(int currcons, int new_x,unsigned int new_y)
@@ -168,9 +180,12 @@ static inline void gotoxy(int currcons, int new_x,unsigned int new_y)
 		return;
 	x = new_x;
 	y = new_y;
-	pos = origin + y*video_size_row + (x<<1);
+	pos = origin + y*video_size_row + (x<<1);// 2 字节显存/字符； video_size_row:80*2
 }
 
+/*
+设置滚屏起始显示地址
+ */
 static inline void set_origin(int currcons)
 {
 	if (video_type != VIDEO_TYPE_EGAC && video_type != VIDEO_TYPE_EGAM)
@@ -185,6 +200,7 @@ static inline void set_origin(int currcons)
 	sti();
 }
 
+
 static void scrup(int currcons)
 {
 	if (bottom<=top)
@@ -196,6 +212,10 @@ static void scrup(int currcons)
 			pos += video_size_row;
 			scr_end += video_size_row;
 			if (scr_end > video_mem_end) {
+                          /*
+                            把屏幕中除了第一行外的其他行移到显存的起始位置
+                            movsl: [esi] -> [edi]
+                           */
 				__asm__("cld\n\t"
 					"rep\n\t"
 					"movsl\n\t"
@@ -211,6 +231,10 @@ static void scrup(int currcons)
 				pos -= origin-video_mem_start;
 				origin = video_mem_start;
 			} else {
+                          /*
+                            在新行上填入空白字符
+                            stosw: eax -> [edi]
+                           */
 				__asm__("cld\n\t"
 					"rep\n\t"
 					"stosw"
@@ -250,6 +274,9 @@ static void scrup(int currcons)
 	}
 }
 
+/*
+从后向前复制
+ */
 static void scrdown(int currcons)
 {
 	if (bottom <= top)
@@ -286,6 +313,9 @@ static void scrdown(int currcons)
 	}
 }
 
+/*
+光标下移一行
+ */
 static void lf(int currcons)
 {
 	if (y+1<bottom) {
@@ -296,6 +326,9 @@ static void lf(int currcons)
 	scrup(currcons);
 }
 
+/*
+光标在同列，上移一行
+ */
 static void ri(int currcons)
 {
 	if (y>top) {
@@ -306,12 +339,18 @@ static void ri(int currcons)
 	scrdown(currcons);
 }
 
+/*
+光标回移到第1列（x=0）
+ */
 static void cr(int currcons)
 {
 	pos -= x<<1;
 	x=0;
 }
 
+/*
+擦除第一个字符
+ */
 static void del(int currcons)
 {
 	if (x) {
@@ -321,6 +360,9 @@ static void del(int currcons)
 	}
 }
 
+/*
+删除屏幕与光标位置相关的额部分
+ */
 static void csi_J(int currcons, int vpar)
 {
 	long count __asm__("cx");
@@ -350,6 +392,9 @@ static void csi_J(int currcons, int vpar)
 		:"cx","di");
 }
 
+/*
+删除行中与光标有关的部分
+ */
 static void csi_K(int currcons, int vpar)
 {
 	long count __asm__("cx");
@@ -381,6 +426,9 @@ static void csi_K(int currcons, int vpar)
 		:"cx","di");
 }
 
+/*
+设置显示字符属性
+ */
 void csi_m(int currcons )
 {
 	int i;
@@ -427,6 +475,11 @@ void csi_m(int currcons )
 		}
 }
 
+/*
+  设置光标位置
+1.写命令口
+2.写数据口
+ */
 static inline void set_cursor(int currcons)
 {
 	blankcount = blankinterval;
@@ -440,6 +493,10 @@ static inline void set_cursor(int currcons)
 	sti();
 }
 
+/*
+隐藏光标
+即把光标置于显示出来的内存地址中的最后一个内存地址
+ */
 static inline void hide_cursor(int currcons)
 {
 	outb_p(14, video_port_reg);
@@ -448,6 +505,9 @@ static inline void hide_cursor(int currcons)
 	outb_p(0xff&((scr_end-video_mem_base)>>1), video_port_val);
 }
 
+/*
+
+ */
 static void respond(int currcons, struct tty_struct * tty)
 {
 	char * p = RESPONSE;
@@ -458,9 +518,12 @@ static void respond(int currcons, struct tty_struct * tty)
 		p++;
 	}
 	sti();
-	copy_to_cooked(tty);
+	copy_to_cooked(tty);//终端
 }
 
+/*
+在光标所处位置插入一个空格
+ */
 static void insert_char(int currcons)
 {
 	int i=x;
@@ -475,6 +538,9 @@ static void insert_char(int currcons)
 	}
 }
 
+/*
+在光标处插入一行
+ */
 static void insert_line(int currcons)
 {
 	int oldtop,oldbottom;
@@ -483,7 +549,7 @@ static void insert_line(int currcons)
 	oldbottom=bottom;
 	top=y;
 	bottom = video_num_lines;
-	scrdown(currcons);
+	scrdown(currcons);/*从光标开始处，屏幕内容向下滚动一行*/
 	top=oldtop;
 	bottom=oldbottom;
 }
@@ -516,6 +582,9 @@ static void delete_line(int currcons)
 	bottom=oldbottom;
 }
 
+/*
+在光标处插入 nr 个字符
+ */
 static void csi_at(int currcons, unsigned int nr)
 {
 	if (nr > video_num_columns)
@@ -526,6 +595,9 @@ static void csi_at(int currcons, unsigned int nr)
 		insert_char(currcons);
 }
 
+/*
+在光标处插入 nr 行
+ */
 static void csi_L(int currcons, unsigned int nr)
 {
 	if (nr > video_num_lines)
@@ -536,6 +608,9 @@ static void csi_L(int currcons, unsigned int nr)
 		insert_line(currcons);
 }
 
+/*
+在光标出删除 nr 个字符
+ */
 static void csi_P(int currcons, unsigned int nr)
 {
 	if (nr > video_num_columns)
@@ -546,6 +621,9 @@ static void csi_P(int currcons, unsigned int nr)
 		delete_char(currcons);
 }
 
+/*
+在光标处删除 nr 行
+ */
 static void csi_M(int currcons, unsigned int nr)
 {
 	if (nr > video_num_lines)
@@ -571,6 +649,10 @@ static void restore_cur(int currcons)
 enum { ESnormal, ESesc, ESsquare, ESgetpars, ESgotpars, ESfunckey, 
 	ESsetterm, ESsetgraph };
 
+/*
+主要在与设计方法：
+记录当前输入所处的状态，然后根据所在状态，确定操作
+ */
 void con_write(struct tty_struct * tty)
 {
 	int nr;
@@ -581,7 +663,7 @@ void con_write(struct tty_struct * tty)
 	if ((currcons>=MAX_CONSOLES) || (currcons<0))
 		panic("con_write: illegal tty");
  	   
-	nr = CHARS(tty->write_q);
+	nr = CHARS(tty->write_q);/* include/linux/tty.h 中定义，队列字符个数 */
 	while (nr--) {
 		if (tty->stopped)
 			break;
@@ -591,7 +673,7 @@ void con_write(struct tty_struct * tty)
 		switch(state) {
 			case ESnormal:
 				if (c>31 && c<127) {
-					if (x>=video_num_columns) {
+                                  if (x>=video_num_columns) {/*移动到下一行*/
 						x -= video_num_columns;
 						pos -= video_size_row;
 						lf(currcons);
@@ -617,9 +699,9 @@ void con_write(struct tty_struct * tty)
 						x--;
 						pos -= 2;
 					}
-				} else if (c==9) {
+				} else if (c==9) {/* TAB 将光标移动到8的倍数位 */
 					c=8-(x&7);
-					x += c;
+					x += c;/* x=x+8-(x&7) */
 					pos += c<<1;
 					if (x>video_num_columns) {
 						x -= video_num_columns;
@@ -628,7 +710,7 @@ void con_write(struct tty_struct * tty)
 					}
 					c=9;
 				} else if (c==7)
-					sysbeep();
+                                  sysbeep();//L952
 			  	else if (c == 14)
 			  		translate = GRAF_TRANS;
 			  	else if (c == 15)
@@ -638,7 +720,7 @@ void con_write(struct tty_struct * tty)
 				state = ESnormal;
 				switch (c)
 				{
-				  case '[':
+				  case '[': /* ESC [ 控制序列*/
 					state=ESsquare;
 					break;
 				  case 'E':
@@ -668,7 +750,7 @@ void con_write(struct tty_struct * tty)
 				  case '#':
 				  	state = -1;
 				  	break;  	
-				  case 'c':
+				  case 'c':/*复位到终端初始状态*/
 					tty->termios = DEF_TERMIOS;
 				  	state = restate = ESnormal;
 					checkin = 0;
@@ -684,20 +766,21 @@ void con_write(struct tty_struct * tty)
 					par[npar]=0;
 				npar=0;
 				state=ESgetpars;
-				if (c =='[')  /* Function key */
-				{ state=ESfunckey;
+				if (c =='[')  /* ESC是功能键 Function key */
+				{ state=ESfunckey; 
 				  break;
 				}  
-				if (ques=(c=='?'))
+				if (ques=(c=='?')) 
 					break;
 			case ESgetpars:
 				if (c==';' && npar<NPAR-1) {
 					npar++;
 					break;
-				} else if (c>='0' && c<='9') {
+				} else if (c>='0' && c<='9') {/*处理非一位数据*/
 					par[npar]=10*par[npar]+c-'0';
 					break;
 				} else state=ESgotpars;
+                                /*已经收到完成的控制序列*/
 			case ESgotpars:
 				state = ESnormal;
 				if (ques)
@@ -763,7 +846,7 @@ void con_write(struct tty_struct * tty)
 					case 'm':
 						csi_m(currcons);
 						break;
-					case 'r':
+                                  case 'r':/**/
 						if (par[0]) par[0]--;
 						if (!par[1]) par[1] = video_num_lines;
 						if (par[0] < par[1] &&
@@ -786,7 +869,7 @@ void con_write(struct tty_struct * tty)
 						    break;
 						if ((c=='l')&&(par[0]>=0)&&(par[0]<=60))
 						{  
-						  blankinterval = HZ*60*par[0];
+						  blankinterval = HZ*60*par[0];//par[0] 单位为分钟
 						  blankcount = blankinterval;
 						}
 						if (c=='b')
@@ -807,7 +890,7 @@ void con_write(struct tty_struct * tty)
 				else if (c == 'l')
 					; /*linewrap off*/
 				break;
-			case ESsetgraph:
+                  case ESsetgraph:/* 表示收到 'ESC (' 或 'ESC )', 设置字符集 */
 				state = ESnormal;
 				if (c == '0')
 					translate = GRAF_TRANS;
@@ -844,18 +927,18 @@ void con_init(void)
 	video_size_row = video_num_columns * 2;
 	video_num_lines = ORIG_VIDEO_LINES;
 	video_page = ORIG_VIDEO_PAGE;
-	video_erase_char = 0x0720;
+	video_erase_char = 0x0720;/* 0x20 为空格 */
 	blankcount = blankinterval;
 	
-	if (ORIG_VIDEO_MODE == 7)	/* Is this a monochrome display? */
+	if (ORIG_VIDEO_MODE == 7)	/*单显 Is this a monochrome display? */
 	{
 		video_mem_base = 0xb0000;
 		video_port_reg = 0x3b4;
 		video_port_val = 0x3b5;
-		if ((ORIG_VIDEO_EGA_BX & 0xff) != 0x10)
+		if ((ORIG_VIDEO_EGA_BX & 0xff) != 0x10)/* P214 0x9000B */
 		{
 			video_type = VIDEO_TYPE_EGAM;
-			video_mem_term = 0xb8000;
+			video_mem_term = 0xb8000;//显存末端地址
 			display_desc = "EGAm";
 		}
 		else
@@ -865,7 +948,7 @@ void con_init(void)
 			display_desc = "*MDA";
 		}
 	}
-	else				/* If not, it is color. */
+	else				/*彩显 If not, it is color. */
 	{
 		can_do_colour = 1;
 		video_mem_base = 0xb8000;
@@ -926,8 +1009,12 @@ void con_init(void)
 		gotoxy(currcons,0,0);
 	}
 	update_screen();
+
+        //允许键盘中断
 	set_trap_gate(0x21,&keyboard_interrupt);
 	outb_p(inb_p(0x21)&0xfd,0x21);
+
+        //先禁用键盘，后允许
 	a=inb_p(0x61);
 	outb_p(a|0x80,0x61);
 	outb_p(a,0x61);
@@ -940,7 +1027,17 @@ void update_screen(void)
 }
 
 /* from bsd-net-2: */
+/*
+8255A(P316)芯片端口（可编程并行接口芯片） 位1 用于扬声器的开门信号；位0 用作8253定时器2的门信号
 
+使扬声器停止的操作只要一步操作：
+1.使PB端口(0x61) 位1，位0 复位
+
+使扬声器工作的步骤有：
+1.使PB端口(0x61) 位1，位0 置位
+2.设置定时器2通道定时频率
+
+ */
 void sysbeepstop(void)
 {
 	/* disable counter 2 */
@@ -949,6 +1046,9 @@ void sysbeepstop(void)
 
 int beepcount = 0;
 
+/*
+
+ */
 static void sysbeep(void)
 {
 	/* enable counter 2 */
@@ -962,6 +1062,10 @@ static void sysbeep(void)
 	beepcount = HZ/8;	
 }
 
+/*
+  拷贝屏幕
+  arg 有两个作用：传递控制台号 和 拷贝内容保存的内存缓冲
+*/
 int do_screendump(int arg)
 {
 	char *sptr, *buf = (char *)arg;
@@ -992,6 +1096,9 @@ void unblank_screen()
 /* unblank here */
 }
 
+/*
+控制台显示函数
+ */
 void console_print(const char * b)
 {
 	int currcons = fg_console;

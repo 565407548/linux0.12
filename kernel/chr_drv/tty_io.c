@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+//警告在信号位图中置位
 #define ALRMMASK (1<<(SIGALRM-1))
 
 #include <linux/sched.h>
@@ -26,6 +27,7 @@
 int kill_pg(int pgrp, int sig, int priv);
 int is_orphaned_pgrp(int pgrp);
 
+/*下面很多宏在 include/termios.h 中定义*/
 #define _L_FLAG(tty,f)	((tty)->termios.c_lflag & f)
 #define _I_FLAG(tty,f)	((tty)->termios.c_iflag & f)
 #define _O_FLAG(tty,f)	((tty)->termios.c_oflag & f)
@@ -58,6 +60,9 @@ int is_orphaned_pgrp(int pgrp);
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
+/*
+构建 tty_queue 和 tty_struct
+ */
 #define QUEUES	(3*(MAX_CONSOLES+NR_SERIALS+2*NR_PTYS))
 static struct tty_queue tty_queues[QUEUES];
 struct tty_struct tty_table[256];
@@ -141,18 +146,20 @@ void copy_to_cooked(struct tty_struct * tty)
 		if (I_UCLC(tty))
 			c=tolower(c);
 		if (L_CANON(tty)) {
+                  /* KILL_CHAR include/linux/tty.h 删除一行字符标志 */
 			if ((KILL_CHAR(tty) != _POSIX_VDISABLE) &&
 			    (c==KILL_CHAR(tty))) {
 				/* deal with killing the input line */
+                          
 				while(!(EMPTY(tty->secondary) ||
 				        (c=LAST(tty->secondary))==10 ||
 				        ((EOF_CHAR(tty) != _POSIX_VDISABLE) &&
 					 (c==EOF_CHAR(tty))))) {
 					if (L_ECHO(tty)) {
-						if (c<32)
-							PUTCH(127,tty->write_q);
-						PUTCH(127,tty->write_q);
-						tty->write(tty);
+                                          if (c<32)/*控制字符要删除两字节 127 -> DEL */
+                                            PUTCH(127,tty->write_q);
+                                          PUTCH(127,tty->write_q);
+                                          tty->write(tty);
 					}
 					DEC(tty->secondary->head);
 				}
@@ -209,12 +216,13 @@ void copy_to_cooked(struct tty_struct * tty)
 		}
 		if (c==10 || (EOF_CHAR(tty) != _POSIX_VDISABLE &&
 			      c==EOF_CHAR(tty)))
-			tty->secondary->data++;
+                  tty->secondary->data++;//data记录字符行数值
 		if (L_ECHO(tty)) {
 			if (c==10) {
 				PUTCH(10,tty->write_q);
 				PUTCH(13,tty->write_q);
 			} else if (c<32) {
+                          /*控制字符的输出方式 如中断 ^C */
 				if (L_ECHOCTL(tty)) {
 					PUTCH('^',tty->write_q);
 					PUTCH(c+64,tty->write_q);
@@ -258,6 +266,9 @@ int tty_signal(int sig, struct tty_struct *tty)
 					/* (but restart after we continue) */
 }
 
+/*
+
+ */
 int tty_read(unsigned channel, char * buf, int nr)
 {
 	struct tty_struct * tty;
@@ -403,6 +414,13 @@ void chr_dev_init(void)
 {
 }
 
+/*
+任何一个tty中就包含了一个对应的写函数 struct tty_struc{
+...
+void (*write)(struct tty_struct * tty);
+...
+}
+ */
 void tty_init(void)
 {
 	int i;

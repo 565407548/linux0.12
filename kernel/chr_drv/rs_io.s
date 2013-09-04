@@ -9,7 +9,12 @@
  *
  * This module implements the rs232 io interrupts.
  */
+/*
+实际执行串口的读写及其他相关处理
+	主要是通过中断函数进行对应的处理，而中断函数中，重点在于读写中断的处理
+	*/
 
+	
 .text
 .globl _rs1_interrupt,_rs2_interrupt
 
@@ -29,14 +34,18 @@ startup	= 256		/* chars left in write queue when we restart it */
 /*
  * These are the actual interrupt routines. They look where
  * the interrupt is coming from, and take appropriate action.
+
+	table_list 在tty_io.c 中定义
  */
 .align 2
 _rs1_interrupt:
 	pushl $_table_list+8
 	jmp rs_int
+	
 .align 2
 _rs2_interrupt:
 	pushl $_table_list+16
+	
 rs_int:
 	pushl %edx
 	pushl %ecx
@@ -48,21 +57,21 @@ rs_int:
 	pop %ds
 	pushl $0x10
 	pop %es
-	movl 24(%esp),%edx
-	movl (%edx),%edx
-	movl rs_addr(%edx),%edx
-	addl $2,%edx		/* interrupt ident. reg */
+	movl 24(%esp),%edx/*缓冲队列指针地址*/
+	movl (%edx),%edx /*读取 struct tty_queue 结构指针*/
+	movl rs_addr(%edx),%edx /* tty_queue.data 串口1/2 端口地址 */
+	addl $2,%edx		/* interrupt ident. reg P514 */
 rep_int:
 	xorl %eax,%eax
 	inb %dx,%al
-	testb $1,%al
+	testb $1,%al /*有无中断发生*/
 	jne end
 	cmpb $6,%al		/* this shouldn't happen, but ... */
 	ja end
 	movl 24(%esp),%ecx
 	pushl %edx
 	subl $2,%edx
-	call jmp_table(,%eax,2)		/* NOTE! not *4, bit0 is 0 already */
+	call jmp_table(,%eax,2)		/* jmp_table+(eax/2)*4 NOTE! not *4, bit0 is 0 already */
 	popl %edx
 	jmp rep_int
 end:	movb $0x20,%al
