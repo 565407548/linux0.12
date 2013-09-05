@@ -19,13 +19,22 @@
 
 #include <linux/math_emu.h>
 
+/*
+补码表示法
+理解补码表示法 和 临时数据和仿真数据 的转化是本文件的重点
+ */
 #define NEGINT(a) \
 __asm__("notl %0 ; notl %1 ; addl $1,%0 ; adcl $0,%1" \
 	:"=r" (a->a),"=r" (a->b) \
 	:"0" (a->a),"1" (a->b))
 
+/*
+P574
+尾数符号化处理，便于计算
+ */
 static void signify(temp_real * a)
 {
+  //把有效数据右移2位，对应指数部分+2
 	a->exponent += 2;
 	__asm__("shrdl $2,%1,%0 ; shrl $2,%1"
 		:"=r" (a->a),"=r" (a->b)
@@ -35,6 +44,7 @@ static void signify(temp_real * a)
 	a->exponent &= 0x7fff;
 }
 
+//signify的逆过程
 static void unsignify(temp_real * a)
 {
 	if (!(a->a || a->b)) {
@@ -46,7 +56,7 @@ static void unsignify(temp_real * a)
 		NEGINT(a);
 		a->exponent |= 0x8000;
 	}
-	while (a->b >= 0) {
+	while (a->b >= 0) {//规范化处理
 		a->exponent--;
 		__asm__("addl %0,%0 ; adcl %1,%1"
 			:"=r" (a->a),"=r" (a->b)
@@ -70,6 +80,7 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 		b = *src1;
 		shift = x2-x1;
 	}
+        //做移位调整处理
 	if (shift >= 64) {
 		*result = a;
 		return;

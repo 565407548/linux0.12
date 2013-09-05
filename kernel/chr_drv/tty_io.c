@@ -255,7 +255,7 @@ int tty_signal(int sig, struct tty_struct *tty)
 {
 	if (is_orphaned_pgrp(current->pgrp))
 		return -EIO;		/* don't stop an orphaned pgrp */
-	(void) kill_pg(current->pgrp,sig,1);
+	(void) kill_pg(current->pgrp,sig,1);//发送信号
 	if ((current->blocked & (1<<(sig-1))) ||
 	    ((int) current->sigaction[sig-1].sa_handler == 1)) 
 		return -EIO;		/* Our signal will be ignored */
@@ -267,7 +267,10 @@ int tty_signal(int sig, struct tty_struct *tty)
 }
 
 /*
-
+  从中断缓冲队列中读取指定数量的字符，放到用户指定的缓冲区中
+  先把已经在队列中的数据读取出来，并告知读进程，然后再设置相关读限制(vtime,vmim)
+  如果是伪终端，则把另一个终端的数据写入当前缓冲队列中
+channel:子设备号
  */
 int tty_read(unsigned channel, char * buf, int nr)
 {
@@ -281,13 +284,22 @@ int tty_read(unsigned channel, char * buf, int nr)
 	tty = TTY_TABLE(channel);
 	if (!(tty->write_q || tty->read_q || tty->secondary))
 		return -EIO;
+
+        //当前进程不是前台进程，于是要停止当前进程组的所有进程。等待称为前台进程组后再执行读写操作。
 	if ((current->tty == channel) && (tty->pgrp != current->pgrp)) 
 		return(tty_signal(SIGTTIN, tty));
+        /*
+          主从设备处理情况，
+          主设备号：*0** ****
+          从设备号：*1** ****
+        */
 	if (channel & 0x80)
 		other_tty = tty_table + (channel ^ 0x40);
+
+        //处理vtime,vmin,只对非规范模式有效
 	time = 10L*tty->termios.c_cc[VTIME];
 	minimum = tty->termios.c_cc[VMIN];
-	if (L_CANON(tty)) {
+	if (L_CANON(tty)) {/*规范模式*/
 		minimum = nr;
 		current->timeout = 0xffffffff;
 		time = 0;
@@ -301,7 +313,9 @@ int tty_read(unsigned channel, char * buf, int nr)
 	}
 	if (minimum>nr)
 		minimum = nr;
-	while (nr>0) {
+
+        while (nr>0) {
+          //伪终端，把另一个伪终端的写队列数据 写入 当前伪终端读队列
 		if (other_tty)
 			other_tty->write(other_tty);
 		cli();
@@ -335,7 +349,7 @@ int tty_read(unsigned channel, char * buf, int nr)
 			if (c==10 && L_CANON(tty))
 				break;
 		} while (nr>0 && !EMPTY(tty->secondary));
-		wake_up(&tty->read_q->proc_list);
+		wake_up(&tty->read_q->proc_list);//唤醒读进程，已经读取了部分数据
 		if (time)
 			current->timeout = time+jiffies;
 		if (L_CANON(tty) || b-buf >= minimum)
@@ -358,6 +372,7 @@ int tty_write(unsigned channel, char * buf, int nr)
 	tty = TTY_TABLE(channel);
 	if (!(tty->write_q || tty->read_q || tty->secondary))
 		return -EIO;
+        //非当前进程
 	if (L_TOSTOP(tty) && 
 	    (current->tty == channel) && (tty->pgrp != current->pgrp)) 
 		return(tty_signal(SIGTTOU, tty));

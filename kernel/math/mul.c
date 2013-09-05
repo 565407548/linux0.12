@@ -10,6 +10,10 @@
 
 #include <linux/math_emu.h>
 
+/*
+乘法运算可以参考knuth的《计算机程序设计艺术》
+ */
+// c 地址开始处的16字节数据左移一位
 static void shift(int * c)
 {
 	__asm__("movl (%0),%%eax ; addl %%eax,(%0)\n\t"
@@ -19,6 +23,9 @@ static void shift(int * c)
 		::"r" ((long) c):"ax");
 }
 
+/*
+(ah32,al32)*(bh32,bl32)=al32*bl32+(ah32*bl32+al32*bh32)<<32+(ah32*bh32)<<64
+ */
 static void mul64(const temp_real * a, const temp_real * b, int * c)
 {
 	__asm__("movl (%0),%%eax\n\t"
@@ -59,7 +66,7 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 		set_OE();
 		return;
 	}
-	mul64(src1,src2,tmp);
+	mul64(src1,src2,tmp); //src1*src2 -> tmp
 	if (tmp[0] || tmp[1] || tmp[2] || tmp[3])
 		while (i && tmp[3] >= 0) {
 			i--;

@@ -7,6 +7,12 @@
 #include <linux/math_emu.h>
 
 /*
+把数据转化为临时高精度数据（tmp_real）
+他们的具体格式可以参考 IEEE 754 P548
+注意：为了便于比较大小，指数用偏移数表示
+ */
+
+/*
  * NOTE!!! There is some "non-obvious" optimisations in the temp_to_long
  * and temp_to_short conversion routines: don't touch them if you don't
  * know what's going on. They are the adding of one in the rounding: the
@@ -17,7 +23,7 @@
  * There is no checking for total overflow in the conversions, though (ie
  * if the temp-real number simply won't fit in a short- or long-real.)
  */
-
+/*短实型 to 临时实型*/
 void short_to_temp(const short_real * a, temp_real * b)
 {
 	if (!(*a & 0x7fffffff)) {
@@ -28,6 +34,12 @@ void short_to_temp(const short_real * a, temp_real * b)
 			b->exponent = 0;
 		return;
 	}
+        /*
+          8位指数形式，其偏移基为：127
+          15为指数形式，其偏移基为：16383
+          fact= value1-base1
+          value2=fact+base2
+         */
 	b->exponent = ((*a>>23) & 0xff)-127+16383;
 	if (*a<0)
 		b->exponent |= 0x8000;
@@ -35,6 +47,7 @@ void short_to_temp(const short_real * a, temp_real * b)
 	b->a = 0;
 }
 
+/*长实型 to 临时实型*/
 void long_to_temp(const long_real * a, temp_real * b)
 {
 	if (!a->a && !(a->b & 0x7fffffff)) {
@@ -52,6 +65,11 @@ void long_to_temp(const long_real * a, temp_real * b)
 	b->a = a->a<<11;
 }
 
+/*
+重点在于两点：
+1.有效数字的位1的忽略处理
+2.有效数据的舍入问题
+*/
 void temp_to_short(const temp_real * a, short_real * b)
 {
 	if (!(a->exponent & 0x7fff)) {
@@ -113,9 +131,25 @@ void temp_to_long(const temp_real * a, long_real * b)
 	}
 }
 
+/*
+临时实数 转化为 临时整数
+临时整数也用10字节表示，其中低8字节是无符号整数只，高2字节表示符号位（1负 0正）
+ */
 void real_to_int(const temp_real * a, temp_int * b)
 {
-	int shift =  16383 + 63 - (a->exponent & 0x7fff);
+  /*
+    fact=value+16383
+    value=fact-16383 //实际指数值
+    直接把temp_real的有效位复制到temp_int时，需要把指数部分减小63(最高位1已经是整数位),
+    value=fact-16383-63
+    此值在-64~0才是合适的，否则，表示数据溢出
+    value=-value 表示整形数据需要右移的位数
+
+    value<0 表示数据上溢出
+
+    即此时的value值为整形数据指数值，接着通过处理整形数据，把value指数值处理掉
+   */
+  int shift =  16383 + 63 - (a->exponent & 0x7fff);//需要右移位数
 	unsigned long underflow;
 
 	b->a = b->b = underflow = 0;
@@ -125,12 +159,12 @@ void real_to_int(const temp_real * a, temp_int * b)
 		return;
 	}
 	if (shift < 32) {
-		b->b = a->b; b->a = a->a;
+          b->b = a->b; b->a = a->a;/* a->a的部分有效，a->b的全部有效*/
 	} else if (shift < 64) {
-		b->a = a->b; underflow = a->a;
+          b->a = a->b; underflow = a->a;/* a->a的无效，a->b的部分有效*/
 		shift -= 32;
 	} else if (shift < 96) {
-		underflow = a->b;
+          underflow = a->b;/* a->a，a->b部分都无效*/
 		shift -= 64;
 	} else
 		return;
@@ -176,6 +210,7 @@ void int_to_real(const temp_int * a, temp_real * b)
 		b->exponent = 0;
 		return;
 	}
+        /*确保有效数据的最高位为1，即符合规格化数据的要求*/
 	while (b->b >= 0) {
 		b->exponent--;
 		__asm__("addl %0,%0 ; adcl %1,%1"

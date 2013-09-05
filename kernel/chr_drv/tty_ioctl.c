@@ -15,9 +15,18 @@
 #include <asm/segment.h>
 #include <asm/system.h>
 
-extern int session_of_pgrp(int pgrp);
-extern int tty_signal(int sig, struct tty_struct *tty);
+/*
+  本文件主要是 设置或读取 字符终端设备的相关信息(包括 控制信息 )
+  主要由 fs/ioctl.c 调用
+ */
 
+extern int session_of_pgrp(int pgrp);
+extern int tty_signal(int sig, struct tty_struct *tty);/*tty_io.c 中定义*/
+
+/*
+波特率=1.8432MHZ/(16*波特率因子)
+下面波特率因子对应于 include/termios.h 中定义的 CBAUD B**
+ */
 static unsigned short quotient[] = {
 	0, 2304, 1536, 1047, 857,
 	768, 576, 384, 192, 96,
@@ -60,7 +69,7 @@ static int get_termios(struct tty_struct * tty, struct termios * termios)
 {
 	int i;
 
-	verify_area(termios, sizeof (*termios));
+	verify_area(termios, sizeof (*termios));//验证可读写性
 	for (i=0 ; i< (sizeof (*termios)) ; i++)
 		put_fs_byte( ((char *)&tty->termios)[i] , i+(char *)termios );
 	return 0;
@@ -135,13 +144,19 @@ int tty_ioctl(int dev, int cmd, int arg)
 	struct tty_struct * tty;
 	int	pgrp;
 
-	if (MAJOR(dev) == 5) {
+	if (MAJOR(dev) == 5) {//控制终端
 		dev=current->tty;
 		if (dev<0)
 			panic("tty_ioctl: dev<0");
 	} else
 		dev=MINOR(dev);
-	tty = tty_table + (dev ? ((dev < 64)? dev-1:dev) : fg_console);
+        /*
+          dev=0:前台终端
+          虚拟终端号：0-63(dev-1)
+          其他的：dev
+         */
+        tty = tty_table + (dev ? ((dev < 64)? dev-1:dev) : fg_console);
+        
 	switch (cmd) {
 		case TCGETS:
 			return get_termios(tty,(struct termios *) arg);

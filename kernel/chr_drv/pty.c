@@ -42,6 +42,11 @@ static inline void pty_copy(struct tty_struct * from, struct tty_struct * to)
  * the write_queue. It copies the input to the output-queue of it's
  * slave.
  */
+/*
+主设备号：*0** ****
+从设备号：*1** ****
+把其中一个设备的写队列的数据放入另一个设备的读队列中
+ */
 void mpty_write(struct tty_struct * tty)
 {
 	int nr = tty - tty_table;

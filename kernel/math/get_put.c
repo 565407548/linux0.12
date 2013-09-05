@@ -15,6 +15,10 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 
+/*
+该函数比较简单，主要是从内存指定地址处取得数据，并转化为 temp_real 格式
+ */
+
 void get_short_real(temp_real * tmp,
 	struct info * info, unsigned short code)
 {
@@ -94,19 +98,22 @@ void get_longlong_int(temp_real * tmp,
 	int_to_real(&ti,tmp);
 }
 
+/* 10a=2a+8a */
 #define MUL10(low,high) \
-__asm__("addl %0,%0 ; adcl %1,%1\n\t" \
-"movl %0,%%ecx ; movl %1,%%ebx\n\t" \
-"addl %0,%0 ; adcl %1,%1\n\t" \
-"addl %0,%0 ; adcl %1,%1\n\t" \
+  __asm__("addl %0,%0 ; adcl %1,%1\n\t"/* a=value*2 */     \
+          "movl %0,%%ecx ; movl %1,%%ebx\n\t" /*(edx,ecx)=2*value */     \
+          "addl %0,%0 ; adcl %1,%1\n\t" /*a=4*value*/                            \
+          "addl %0,%0 ; adcl %1,%1\n\t"/* a=2*a=8*value*/                             \
 "addl %%ecx,%0 ; adcl %%ebx,%1" \
 :"=a" (low),"=d" (high) \
 :"0" (low),"1" (high):"cx","bx")
 
+/* (high32,low32)+val32 */
 #define ADD64(val,low,high) \
 __asm__("addl %4,%0 ; adcl $0,%1":"=r" (low),"=r" (high) \
 :"0" (low),"1" (high),"r" ((unsigned long) (val)))
 
+/* 采用的是压缩BCD码 */
 void get_BCD(temp_real * tmp, struct info * info, unsigned short code)
 {
 	int k;
@@ -118,6 +125,9 @@ void get_BCD(temp_real * tmp, struct info * info, unsigned short code)
 	addr += 9;
 	i.sign = 0x80 & get_fs_byte(addr--);
 	i.a = i.b = 0;
+        /*
+          x0x1x2x3x4x5...xn=10(10(10(10x0+x1)+x2)+x3+...)+xn
+         */
 	for (k = 0; k < 9; k++) {
 		c = get_fs_byte(addr--);
 		MUL10(i.a, i.b);
@@ -211,6 +221,9 @@ void put_longlong_int(const temp_real * tmp,
 	put_fs_long(ti.b,1 + (unsigned long *) addr);
 }
 
+/*
+有待认真分析
+ */
 #define DIV10(low,high,rem) \
 __asm__("divl %6 ; xchgl %1,%2 ; divl %6" \
 	:"=d" (rem),"=a" (low),"=b" (high) \

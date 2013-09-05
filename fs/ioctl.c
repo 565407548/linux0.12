@@ -22,8 +22,8 @@ static ioctl_ptr ioctl_table[]={
 	NULL,		/* /dev/mem */
 	NULL,		/* /dev/fd */
 	NULL,		/* /dev/hd */
-	tty_ioctl,	/* /dev/ttyx */
-	tty_ioctl,	/* /dev/tty */
+	tty_ioctl,	/*4 /dev/ttyx */
+	tty_ioctl,	/*5 /dev/tty */
 	NULL,		/* /dev/lp */
 	NULL};		/* named pipes */
 	
@@ -45,5 +45,6 @@ int sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 		return -ENODEV;
 	if (!ioctl_table[MAJOR(dev)])
 		return -ENOTTY;
+        // tty_ioctl(dev,cmd,arg)
 	return ioctl_table[MAJOR(dev)](dev,cmd,arg);
 }

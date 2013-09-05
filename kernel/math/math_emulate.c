@@ -37,6 +37,23 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 
+/*
+  具体参考P550
+浮点指令出错，而CR0中的EM=1时，引起中断，进入浮点仿真处理。
+由于中断发生时，EIP被保存于栈中，所以可以通过栈中EIP直接获取指令code，
+而本程序主要是根据指令code来解析指令（一条浮点指令占用2字节空间）
+linus在仔细分析了指令code后，把指令分为五类处理，具体见本程序。
+
+
+而数学写处理器80387的基本信息：
+1.有8个10字节的寄存器，操作方式类似于栈
+2.有状态字、控制字、特征字，都是占用2字节
+3.有4个32位寄存器，表示指令地址和数据地址
+
+其他：
+1.浮点数表示方式：IEEE754
+*/
+
 #define bswapw(x) __asm__("xchgb %%al,%%ah":"=a" (x):"0" ((short)x))
 #define ST(x) (*__st((x)))
 #define PST(x) ((const temp_real *) __st((x)))
@@ -55,7 +72,7 @@ static void do_emu(struct info * info)
 	temp_real tmp;
 	char * address;
 
-	if (I387.cwd & I387.swd & 0x3f)
+	if (I387.cwd & I387.swd & 0x3f) /*struct i387_struct 的定义在 include/kernel/sched.h */
 		I387.swd |= 0x8000;
 	else
 		I387.swd &= 0x7fff;
@@ -66,7 +83,7 @@ static void do_emu(struct info * info)
 		panic("Math emulation needed in kernel");
 	}
 	code = get_fs_word((unsigned short *) EIP);
-	bswapw(code);
+	bswapw(code);/*由于是先存低字节，后存高字节，为little endian格式*/
 	code &= 0x7ff;
 	I387.fip = EIP;
 	*(unsigned short *) &I387.fcs = CS;

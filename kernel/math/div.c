@@ -10,6 +10,13 @@
 
 #include <linux/math_emu.h>
 
+/*
+  乘法运算可以参考knuth的《计算机程序设计艺术》
+*/
+
+/*
+把c指针处的16字节数据左移1位
+ */
 static void shift_left(int * c)
 {
 	__asm__ __volatile__("movl (%0),%%eax ; addl %%eax,(%0)\n\t"
@@ -19,16 +26,24 @@ static void shift_left(int * c)
 		::"r" ((long) c):"ax");
 }
 
+//把c指针处的数据右移1位
 static void shift_right(int * c)
 {
 	__asm__("shrl $1,12(%0) ; rcrl $1,8(%0) ; rcrl $1,4(%0) ; rcrl $1,(%0)"
 		::"r" ((long) c));
 }
 
+/*
+  a，b为起始地址16字节整形数据的减法
+  a-b:模拟人工减法操作
+ */
 static int try_sub(int * a, int * b)
 {
 	char ok;
 
+        /*
+          setae %al：根据是否有借位，设置%al
+         */
 	__asm__ __volatile__("movl (%1),%%eax ; subl %%eax,(%2)\n\t"
 		"movl 4(%1),%%eax ; sbbl %%eax,4(%2)\n\t"
 		"movl 8(%1),%%eax ; sbbl %%eax,8(%2)\n\t"
@@ -37,6 +52,10 @@ static int try_sub(int * a, int * b)
 	return ok;
 }
 
+/*
+用减法模拟除法
+a/b -> c
+ */
 static void div64(int * a, int * b, int * c)
 {
 	int tmp[4];
@@ -51,7 +70,7 @@ static void div64(int * a, int * b, int * c)
 		}
 		tmp[0] = a[0]; tmp[1] = a[1];
 		tmp[2] = a[2]; tmp[3] = a[3];
-		if (try_sub(b,tmp)) {
+		if (try_sub(b,tmp)) {/*有借位*/
 			*c |= mask;
 			a[0] = tmp[0]; a[1] = tmp[1];
 			a[2] = tmp[2]; a[3] = tmp[3];

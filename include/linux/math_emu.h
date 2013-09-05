@@ -59,16 +59,33 @@ void __math_abort(struct info *, unsigned int);
  * want some kind of "no-alignt" pragma or something.
  */
 
+/*
+P548：
+段实型 4字节
+长实型 8字节
+临时实型 10字节
+ */
+/*
+4+4+2=10字节 协处理器使用的实数格式
+ */
 typedef struct {
 	long a,b;
 	short exponent;
 } temp_real;
 
+/*
+  10字节
+ */
 typedef struct {
 	short m0,m1,m2,m3;
 	short exponent;
 } temp_real_unaligned;
 
+/*
+long long 表示8字节，64位数据
+1.复制低8位数据(tmp->a,tmp->b)
+2.复制高2位数据(tmp->exponent)
+ */
 #define real_to_real(a,b) \
 ((*(long long *) (b) = *(long long *) (a)),((b)->exponent = (a)->exponent))
 
@@ -83,6 +100,7 @@ typedef struct {
 	short sign;
 } temp_int;
 
+/*注意标识方式*/
 struct swd {
 	int ie:1;
 	int de:1;
