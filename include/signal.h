@@ -33,7 +33,6 @@ typedef unsigned int sigset_t;		/* 32 bits */
 #define SIGTTIN		21
 #define SIGTTOU		22
 
-/* Ok, I haven't implemented sigactions, but trying to keep headers POSIX */
 #define SA_NOCLDSTOP	1
 #define SA_INTERRUPT	0x20000000
 #define SA_NOMASK	0x40000000
@@ -47,20 +46,21 @@ typedef unsigned int sigset_t;		/* 32 bits */
 #define SIG_IGN		((void (*)(int))1)	/* ignore signal */
 #define SIG_ERR		((void (*)(int))-1)	/* error return from signal */
 
+/*注意 括号 及 逗号 表达式的运用*/
 #ifdef notdef
 #define sigemptyset(mask) ((*(mask) = 0), 1)
 #define sigfillset(mask) ((*(mask) = ~0), 1)
 #endif
 
 struct sigaction {
-	void (*sa_handler)(int);
-	sigset_t sa_mask;
-	int sa_flags;
-	void (*sa_restorer)(void);
+  void (*sa_handler)(int);//函数指针
+  sigset_t sa_mask;//屏蔽码
+  int sa_flags;//信号处理过程的信号集合
+  void (*sa_restorer)(void);//恢复函数指针，由函数库libc提供
 };
 
 void (*signal(int _sig, void (*_func)(int)))(int);
-int raise(int sig);
+int raise(int sig);//给自身发送信号
 int kill(pid_t pid, int sig);
 int sigaddset(sigset_t *mask, int signo);
 int sigdelset(sigset_t *mask, int signo);

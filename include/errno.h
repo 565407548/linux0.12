@@ -14,7 +14,10 @@
  * NOTE! Remember to change strerror() if you change this file!
  */
 
-extern int errno;
+/*
+头文件中只放 函数/变量 申明
+ */
+extern int errno;//变量的申明，为全局变量，在其他地方定义（lib/error.c）
 
 #define ERROR		99
 #define EPERM		 1

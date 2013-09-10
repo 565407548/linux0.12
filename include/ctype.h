@@ -1,6 +1,10 @@
 #ifndef _CTYPE_H
 #define _CTYPE_H
 
+/*
+重点在与表驱动法的运用(如_ctype)
+ */
+
 #define _U	0x01	/* upper */
 #define _L	0x02	/* lower */
 #define _D	0x04	/* digit */
